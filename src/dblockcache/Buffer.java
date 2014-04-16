@@ -19,6 +19,9 @@ public class Buffer extends DBuffer {
 		blockID = id;
 		block = new byte[blockSize];
 		virtualDisk = vDisk;
+		isValid = false;
+		isBusy = false;
+		isDirty = false;
 	}
 	
     @Override
@@ -53,7 +56,7 @@ public class Buffer extends DBuffer {
     }
 
     @Override
-    public boolean waitValid () {
+    public synchronized boolean waitValid () {
         while(!isValid) {
         	try {
 				wait();
@@ -72,7 +75,7 @@ public class Buffer extends DBuffer {
     }
 
     @Override
-    public boolean waitClean () {
+    public  synchronized boolean waitClean () {
         while(isDirty) {
         	try {
 				wait();
@@ -89,7 +92,7 @@ public class Buffer extends DBuffer {
     }
 
     @Override
-    public int read (byte[] buffer, int startOffset, int count) {
+    public synchronized int read (byte[] buffer, int startOffset, int count) {
         isBusy = true;
         int bytes = count;
         if (count > buffer.length){
@@ -117,7 +120,7 @@ public class Buffer extends DBuffer {
     }
 
     @Override
-    public int write (byte[] buffer, int startOffset, int count) {
+    public synchronized int write (byte[] buffer, int startOffset, int count) {
         // TODO Auto-generated method stub
         isBusy = true;
         int bytes = count;
@@ -144,7 +147,7 @@ public class Buffer extends DBuffer {
     }
 
     @Override
-    public void ioComplete () {
+    public synchronized void ioComplete () {
         isBusy = false;
         isValid = true;
         isDirty = false;
@@ -161,4 +164,8 @@ public class Buffer extends DBuffer {
         return block;
     }
 
+    public void setBusy(boolean busy) {
+    	isBusy = busy;
+    }
+    
 }
