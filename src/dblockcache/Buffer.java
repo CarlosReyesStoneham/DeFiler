@@ -148,6 +148,7 @@ public class Buffer extends DBuffer {
         isBusy = false;
         isValid = true;
         isDirty = false;
+        notifyAll();
     }
 
     @Override
