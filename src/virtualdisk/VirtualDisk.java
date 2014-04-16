@@ -1,6 +1,5 @@
 package virtualdisk;
-/*
- * VirtualDisk.java
+/*VirtualDisk.java
  *
  * A virtual asynchronous disk.
  *
@@ -96,13 +95,14 @@ public abstract class VirtualDisk implements IVirtualDisk {
 	 * Reads the buffer associated with DBuffer to the underlying
 	 * device/disk/volume
 	 */
-	private int readBlock(DBuffer buf) throws IOException {
+	protected synchronized int readBlock(DBuffer buf) throws IOException {
 		int seekLen = buf.getBlockID() * Constants.BLOCK_SIZE;
 		/* Boundary check */
 		if (_maxVolSize < seekLen + Constants.BLOCK_SIZE) {
 			return -1;
 		}
 		_file.seek(seekLen);
+		buf.ioComplete();
 		return _file.read(buf.getBuffer(), 0, Constants.BLOCK_SIZE);
 	}
 
@@ -110,9 +110,10 @@ public abstract class VirtualDisk implements IVirtualDisk {
 	 * Writes the buffer associated with DBuffer to the underlying
 	 * device/disk/volume
 	 */
-	private void writeBlock(DBuffer buf) throws IOException {
+	protected synchronized void writeBlock(DBuffer buf) throws IOException {
 		int seekLen = buf.getBlockID() * Constants.BLOCK_SIZE;
 		_file.seek(seekLen);
 		_file.write(buf.getBuffer(), 0, Constants.BLOCK_SIZE);
+		buf.ioComplete();
 	}
 }

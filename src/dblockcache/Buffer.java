@@ -1,77 +1,163 @@
 package dblockcache;
 
-public class Buffer extends DBuffer {
+import java.io.IOException;
 
+import common.Constants.DiskOperationType;
+
+import virtualdisk.VDisk;
+import virtualdisk.VirtualDisk;
+
+public class Buffer extends DBuffer {
+	private int blockID;
+	private byte[] block;
+	private boolean isValid;
+	private boolean isBusy;
+	private boolean isDirty;
+	private VDisk virtualDisk;
+	
+	public Buffer (int id, int blockSize, VDisk vDisk) {
+		blockID = id;
+		block = new byte[blockSize];
+		virtualDisk = vDisk;
+	}
+	
     @Override
     public void startFetch () {
-        // TODO Auto-generated method stub
+        isBusy = true;
+        isValid = false;
+        try {
+			virtualDisk.startRequest(this, DiskOperationType.READ);
+		} catch (IllegalArgumentException e) {
+			e.printStackTrace();
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
         
     }
 
     @Override
     public void startPush () {
-        // TODO Auto-generated method stub
-        
+        isBusy = true;
+        try {
+			virtualDisk.startRequest(this, DiskOperationType.WRITE);
+		} catch (IllegalArgumentException e) {
+			e.printStackTrace();
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
     }
 
     @Override
     public boolean checkValid () {
-        // TODO Auto-generated method stub
-        return false;
+        return isValid;
     }
 
     @Override
     public boolean waitValid () {
-        // TODO Auto-generated method stub
-        return false;
+        while(!isValid) {
+        	try {
+				wait();
+			} catch (InterruptedException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+        }
+        
+        return true;
     }
 
     @Override
     public boolean checkClean () {
-        // TODO Auto-generated method stub
-        return false;
+        return !isDirty;
     }
 
     @Override
     public boolean waitClean () {
-        // TODO Auto-generated method stub
-        return false;
+        while(isDirty) {
+        	try {
+				wait();
+			} catch (InterruptedException e) {
+				e.printStackTrace();
+			}
+        }
+        return true;
     }
 
     @Override
     public boolean isBusy () {
-        // TODO Auto-generated method stub
-        return false;
+        return isBusy;
     }
 
     @Override
     public int read (byte[] buffer, int startOffset, int count) {
-        // TODO Auto-generated method stub
-        return 0;
+        isBusy = true;
+        int bytes = count;
+        if (count > buffer.length){
+        	bytes = buffer.length;
+        }
+        //check if buffer is valid
+        if (startOffset + bytes > buffer.length || startOffset + bytes < 0 || !isValid) {
+        	return -1;
+        }
+        
+        //if at end of file
+        for (int i=startOffset; i < bytes; i++) {
+        	//check if this works
+        	if(i == (bytes-1)) {
+        		notifyAll();
+        		return bytes;
+        	}
+        	else {
+        		buffer[i] = block[i - startOffset]; 
+        	}
+        }
+        isBusy = false;
+        notifyAll();
+        return bytes;
     }
 
     @Override
     public int write (byte[] buffer, int startOffset, int count) {
         // TODO Auto-generated method stub
-        return 0;
+        isBusy = true;
+        int bytes = count;
+        if (count > buffer.length) {
+        	bytes = buffer.length;
+        }
+        if (startOffset + bytes > buffer.length || startOffset + bytes < 0 || !isValid) {
+        	return -1;
+        }
+    	isDirty = true;
+        for (int i = startOffset; i<bytes; i++) {
+        	if (i < (bytes-1)) {
+        		notifyAll();
+        		return bytes;
+        		}
+        
+        	else {
+        		block[i - startOffset] = buffer[i]; 
+        }
+        }
+    	isBusy = false;
+    	notifyAll();
+    	return bytes;
     }
 
     @Override
     public void ioComplete () {
-        // TODO Auto-generated method stub
-        
+        isBusy = false;
+        isValid = true;
+        isDirty = false;
     }
 
     @Override
     public int getBlockID () {
-        // TODO Auto-generated method stub
-        return 0;
+      return blockID;
     }
 
     @Override
     public byte[] getBuffer () {
-        // TODO Auto-generated method stub
-        return null;
+        return block;
     }
 
 }
