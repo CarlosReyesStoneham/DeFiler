@@ -7,7 +7,7 @@ public class Inode {
     private DFileID myID;
     private int myFileSize;
     private List<Integer> myBlockMap;
-    
+
     public Inode (DFileID id, int fileSize) {
         this.myID = id;
         this.myFileSize = fileSize;
@@ -18,7 +18,11 @@ public class Inode {
     	myBlockMap.add(blockID);
     }
     
-    public void createInode() {
-    	
+    public List<Integer> getMyBlockMap () {
+        return myBlockMap;
+    }
+
+    public void setMyBlockMap (List<Integer> myBlockMap) {
+        this.myBlockMap = myBlockMap;
     }
 }
