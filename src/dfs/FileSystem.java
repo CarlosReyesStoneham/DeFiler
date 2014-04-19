@@ -15,6 +15,7 @@ import common.Constants;
 import common.DFileID;
 import dblockcache.Buffer;
 import dblockcache.BufferCache;
+import dfs.BlockManager.Block;
 
 public class FileSystem extends DFS {
 
@@ -22,6 +23,7 @@ public class FileSystem extends DFS {
 	BlockManager myFreeList;
 	BlockManager myAllocatedList;
 	Map<DFileID, Inode> DFileMap;
+
 
 	public FileSystem() {
 		try {
@@ -42,7 +44,7 @@ public class FileSystem extends DFS {
 		//dfiles
 		for(int i = 0; i < Constants.NUM_OF_BLOCKS-1; i++) {
 			Buffer buf = (Buffer) myCache.getBlock(i+1);
-			//wait til its valid. NEED WHILE LOOP? 
+			//wait til its valid. NEED WHILE LOOP on checkValid? 
 			buf.startFetch();
 			buf.waitValid();
 			//create file
@@ -68,10 +70,46 @@ public class FileSystem extends DFS {
 		// TODO Auto-generated method stub
 		return 0;
 	}
-
+	
+	/*
+	 * writes to the file specified by DFileID from the buffer starting from the
+	 * buffer offset startOffset; at most count bytes are transferred
+	 */
 	@Override
-	public int write(DFileID dFID, byte[] buffer, int startOffset, int count) {
-		// TODO Auto-generated method stub
+	public int write(DFileID dFID, byte[] buffer, int startOffset, int count) {		
+		int fileSize = buffer.length;
+		
+		int numBlocks;
+		if (fileSize%Constants.BLOCK_SIZE != 0) {
+			numBlocks = fileSize/Constants.BLOCK_SIZE + 1;
+		}
+		else {
+			numBlocks = fileSize/Constants.BLOCK_SIZE;
+		}
+		
+		Inode inode = new Inode(dFID, fileSize);
+		
+		int currentBytePosition = 0;
+		int blockCount = 0;
+		while (blockCount < numBlocks) {
+			byte[] blockContent = new byte[Constants.BLOCK_SIZE];
+			for (int i=currentBytePosition; i < currentBytePosition
+					+Constants.BLOCK_SIZE; i++) {
+				if (i > buffer.length) {
+					break;
+				}
+				blockContent[i] = buffer[i];
+			}
+			currentBytePosition+=Constants.BLOCK_SIZE;
+			
+			Block block = myFreeList.allocateBlock(blockContent);
+			inode.addToBlockMap(block.getID());
+			blockCount++;
+		}
+		
+		//PUT THE INODE SOMEWHERE
+		
+		
 		return 0;
 	}
 
