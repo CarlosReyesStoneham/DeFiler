@@ -19,9 +19,9 @@ import dfs.BlockManager.Block;
 public class FileSystem extends DFS {
 
     BufferCache myCache;
-    BlockManager myFreeList;
-    BlockManager myAllocatedList;
+    BlockManager blockManager;
     Map<DFileID, Inode> DFileMap;
+    
 
     public FileSystem () {
         try {
@@ -33,23 +33,19 @@ public class FileSystem extends DFS {
         catch (IOException e) {
             e.printStackTrace();
         }
-        myFreeList = new BlockManager();
-        myAllocatedList = new BlockManager();
+        blockManager = new BlockManager();
         DFileMap = new HashMap<DFileID, Inode>();
     }
 
     @Override
     public void init () {
-        // go through blocks in disk and get them using buffers and create
-        // dfiles
-        for (int i = 0; i < Constants.NUM_OF_BLOCKS - 1; i++) {
-            Buffer buf = (Buffer) myCache.getBlock(i + 1);
-            // wait til its valid. NEED WHILE LOOP on checkValid?
-            buf.startFetch();
-            buf.waitValid();
-            // create file
-            // DFileMap.put(, )
-        }
+    
+       //go through the list of used inodes and remove the allocated blocks from the freelist
+       for (Inode i : DFileMap.values()) {
+    	   for (int id : i.getMyBlockMap()) {
+    		   blockManager.removeBlock(id);
+    	   }
+       }
     }
 
     @Override
@@ -116,7 +112,7 @@ public class FileSystem extends DFS {
             }
             currentBytePosition += Constants.BLOCK_SIZE;
 
-            Block block = myFreeList.allocateBlock(blockContent);
+            Block block = blockManager.allocateBlock(blockContent);
             inode.addToBlockMap(block.getID());
             blockCount++;
         }
@@ -143,5 +139,5 @@ public class FileSystem extends DFS {
         myCache.sync();
 
     }
-
+   
 }
