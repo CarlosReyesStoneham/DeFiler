@@ -9,7 +9,6 @@ import common.*;
 public class BlockManager {
 	
 	private Queue<Block> myBlockList;
-	private int maxBlockNumber;
 	class Block {
 		private int myID;
 		private int mySize;
@@ -27,9 +26,8 @@ public class BlockManager {
 	
 	
 	public BlockManager() {
-		maxBlockNumber = 0;
 		myBlockList = new LinkedList<Block>();
-		for (int i = 0; i < maxBlockNumber; i++) {
+		for (int i = 0; i < Constants.NUM_OF_BLOCKS; i++) {
 			myBlockList.add(new Block(i, null));
 		}
 	}
