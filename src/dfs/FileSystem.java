@@ -22,169 +22,171 @@ import dfs.BlockManager.Block;
 
 public class FileSystem extends DFS {
 
-    BufferCache myCache;
-    BlockManager blockManager;
-    Map<DFileID, Inode> DFileMap;
-    
+	BufferCache myCache;
+	BlockManager blockManager;
+	Map<DFileID, Inode> DFileMap;
 
-    public FileSystem () {
-        try {
-            myCache = new BufferCache(Constants.BLOCK_SIZE, new VDisk());
-        }
-        catch (FileNotFoundException e) {
-            e.printStackTrace();
-        }
-        catch (IOException e) {
-            e.printStackTrace();
-        }
-        blockManager = new BlockManager();
-        DFileMap = new HashMap<DFileID, Inode>();
-    }
-    
-    public void writeInode(DFileID dfid, int fileSize) {
-        byte[] inodeBuffer = new byte[Constants.BLOCK_SIZE];
-        DBuffer buffer = myCache.getBlock(0);
-        for (int i = 0; i < Constants.MAX_DFILES; i += Constants.INODE_SIZE) {
-            BigInteger dfidbytes = BigInteger.valueOf(dfid.getDFileID());
-            BigInteger sizebytes = BigInteger.valueOf(dfid.getDFileID());
-            
-            for (int j = 0; j < dfidbytes.toByteArray().length; j++) {
-                inodeBuffer[j] = dfidbytes.toByteArray()[j];
-            }
-            for (int j = 0; j < sizebytes.toByteArray().length; j++) {
-                inodeBuffer[j+dfidbytes.toByteArray().length] = sizebytes.toByteArray()[j];
-            }
-            
-            
-            buffer.write(inodeBuffer, i, Constants.INODE_SIZE);
-        }
-        buffer.startPush();
 
-    }
-    
-    @Override
-    public void init () {
-        
-        //INODES
-        for(int i = 0; i < Constants.MAX_DFILES; i += Constants.INODE_SIZE) {
-            Buffer buf = null;
-            if (myCache.getBlock(i) != null) {
-                buf = (Buffer) myCache.getBlock(i);
-            }
-            else {
-                continue;
-            }
-            while(!buf.checkValid()) {
-                buf.waitValid();
-            }
-            buf.startFetch();
-            
-            DFileID fileID = new DFileID(buf.getBlockID());
-            
-        }
-        
-        //THIS NEEDS TO CHANGE
-       //go through the list of used inodes and remove the allocated blocks from the freelist
-       for (Inode i : DFileMap.values()) {
-    	   for (int id : i.getMyBlockMap()) {
-    		   blockManager.removeBlock(id);
-    	   }
-       }
-    }
+	public FileSystem () {
+		try {
+			myCache = new BufferCache(Constants.BLOCK_SIZE, new VDisk());
+		}
+		catch (FileNotFoundException e) {
+			e.printStackTrace();
+		}
+		catch (IOException e) {
+			e.printStackTrace();
+		}
+		blockManager = new BlockManager();
+		DFileMap = new HashMap<DFileID, Inode>();
+	}
 
-    @Override
-    public DFileID createDFile () {
-        
-        //GO DOWN TO THE VIRTUAL DISK TO GET HIGHEST VALUE FILE #
-        return null;
-        //return new DFileID(blockNumber);
-    }
+	public void writeInode(DFileID dfid, int fileSize) {
+		for(int k = 0; k < Constants.MAX_FILE_SIZE/(Constants.BLOCK_SIZE/Constants.INODE_SIZE); k++) {
+			byte[] inodeBuffer = new byte[Constants.BLOCK_SIZE];
+			DBuffer buffer = myCache.getBlock(k);
+			for (int i = 0; i < Constants.MAX_DFILES; i += Constants.INODE_SIZE) {
+				BigInteger dFidBytes = BigInteger.valueOf(dfid.getDFileID());
+				BigInteger sizeBytes = BigInteger.valueOf(fileSize);
 
-    @Override
-    public void destroyDFile (DFileID dFID) {
-        // TODO Auto-generated method stub
+				for (int j = 0; j < dFidBytes.toByteArray().length; j++) {
+					inodeBuffer[j] = dFidBytes.toByteArray()[j];
+				}
+				for (int j = 0; j < sizeBytes.toByteArray().length; j++) {
+					inodeBuffer[j+dFidBytes.toByteArray().length] = sizeBytes.toByteArray()[j];
+				}
 
-    }
 
-    @Override
-    public synchronized int read (DFileID dFID, byte[] buffer, int startOffset, int count) {
-        Inode fileInode = DFileMap.get(dFID);
-        
-        if (fileInode == null) {
-            return -1;
-        }
-        int currentOffset = startOffset;
-        int currentCount = count;
-        for (int blockPointer : fileInode.getMyBlockMap()) {
-            DBuffer buf = myCache.getBlock(blockPointer);
-            buf.read(buffer, currentOffset, currentCount);
-            currentOffset += count;
-            currentCount -= count;
-        }
-        
-        return count;
-        
-    }
+				buffer.write(inodeBuffer, i, Constants.INODE_SIZE);
+			}
+			buffer.startPush();
+		}
+		
+	}
 
-    /*
-     * writes to the file specified by DFileID from the buffer starting from the
-     * buffer offset startOffset; at most count bytes are transferred
-     */
-    @Override
-    public synchronized int write (DFileID dFID, byte[] buffer, int startOffset, int count) {
-        int fileSize = buffer.length;
+	@Override
+	public void init () {
 
-        int numBlocks;
-        if (fileSize % Constants.BLOCK_SIZE != 0) {
-            numBlocks = fileSize / Constants.BLOCK_SIZE + 1;
-        }
-        else {
-            numBlocks = fileSize / Constants.BLOCK_SIZE;
-        }
+		//INODES
+		for(int i = 0; i < Constants.MAX_DFILES; i += Constants.INODE_SIZE) {
+			Buffer buf = null;
+			if (myCache.getBlock(i) != null) {
+				buf = (Buffer) myCache.getBlock(i);
+			}
+			else {
+				continue;
+			}
+			while(!buf.checkValid()) {
+				buf.waitValid();
+			}
+			buf.startFetch();
 
-        Inode inode = new Inode(dFID, fileSize);
+			DFileID fileID = new DFileID(buf.getBlockID());
 
-        int currentBytePosition = 0;
-        int blockCount = 0;
-        while (blockCount < numBlocks) {
-            byte[] blockContent = new byte[Constants.BLOCK_SIZE];
-            for (int i = currentBytePosition; i < currentBytePosition
-                                                  + Constants.BLOCK_SIZE; i++) {
-                if (i > buffer.length) {
-                    break;
-                }
-                blockContent[i] = buffer[i];
-            }
-            currentBytePosition += Constants.BLOCK_SIZE;
+		}
 
-            Block block = blockManager.allocateBlock(blockContent);
-            inode.addToBlockMap(block.getID());
-            // Write blocks to cache
-            myCache.getBlock(block.getID());
-            
-            blockCount++;
-        }
-        DFileMap.put(dFID, inode);
+		//THIS NEEDS TO CHANGE
+		//go through the list of used inodes and remove the allocated blocks from the freelist
+		for (Inode i : DFileMap.values()) {
+			for (int id : i.getMyBlockMap()) {
+				blockManager.removeBlock(id);
+			}
+		}
+	}
 
-        return 0;
-    }
+	@Override
+	public DFileID createDFile () {
 
-    @Override
-    public int sizeDFile (DFileID dFID) {
-        // TODO Auto-generated method stub
-        return 0;
-    }
+		//GO DOWN TO THE VIRTUAL DISK TO GET HIGHEST VALUE FILE #
+		return null;
+		//return new DFileID(blockNumber);
+	}
 
-    @Override
-    public List<DFileID> listAllDFiles () {
-        // TODO Auto-generated method stub
-        return null;
-    }
+	@Override
+	public void destroyDFile (DFileID dFID) {
+		// TODO Auto-generated method stub
 
-    @Override
-    public void sync () {
-        myCache.sync();
+	}
 
-    }
-   
+	@Override
+	public synchronized int read (DFileID dFID, byte[] buffer, int startOffset, int count) {
+		Inode fileInode = DFileMap.get(dFID);
+
+		if (fileInode == null) {
+			return -1;
+		}
+		int currentOffset = startOffset;
+		int currentCount = count;
+		for (int blockPointer : fileInode.getMyBlockMap()) {
+			DBuffer buf = myCache.getBlock(blockPointer);
+			buf.read(buffer, currentOffset, currentCount);
+			currentOffset += count;
+			currentCount -= count;
+		}
+
+		return count;
+
+	}
+
+	/*
+	 * writes to the file specified by DFileID from the buffer starting from the
+	 * buffer offset startOffset; at most count bytes are transferred
+	 */
+	@Override
+	public synchronized int write (DFileID dFID, byte[] buffer, int startOffset, int count) {
+		int fileSize = buffer.length;
+
+		int numBlocks;
+		if (fileSize % Constants.BLOCK_SIZE != 0) {
+			numBlocks = fileSize / Constants.BLOCK_SIZE + 1;
+		}
+		else {
+			numBlocks = fileSize / Constants.BLOCK_SIZE;
+		}
+
+		Inode inode = new Inode(dFID, fileSize);
+
+		int currentBytePosition = 0;
+		int blockCount = 0;
+		while (blockCount < numBlocks) {
+			byte[] blockContent = new byte[Constants.BLOCK_SIZE];
+			for (int i = currentBytePosition; i < currentBytePosition
+					+ Constants.BLOCK_SIZE; i++) {
+				if (i > buffer.length) {
+					break;
+				}
+				blockContent[i] = buffer[i];
+			}
+			currentBytePosition += Constants.BLOCK_SIZE;
+
+			Block block = blockManager.allocateBlock(blockContent);
+			inode.addToBlockMap(block.getID());
+			// Write blocks to cache
+			myCache.getBlock(block.getID());
+
+			blockCount++;
+		}
+		DFileMap.put(dFID, inode);
+
+		return 0;
+	}
+
+	@Override
+	public int sizeDFile (DFileID dFID) {
+		// TODO Auto-generated method stub
+		return 0;
+	}
+
+	@Override
+	public List<DFileID> listAllDFiles () {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+	@Override
+	public void sync () {
+		myCache.sync();
+
+	}
+
 }
