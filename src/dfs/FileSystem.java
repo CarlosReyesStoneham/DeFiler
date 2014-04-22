@@ -37,7 +37,7 @@ public class FileSystem extends DFS {
         DFileMap = new HashMap<DFileID, Inode>();
     }
 
-    public void writeInode (Inode inode) {
+    public void writeInode (Inode inode, boolean create) {
         int id = inode.getFileID().getDFileID();
 
         int blockPosition = id / Constants.INODE_SIZE;
@@ -70,7 +70,18 @@ public class FileSystem extends DFS {
             dataBuffer[j + dFidBytes.toByteArray().length] = intermediateBuffer[j];
         }
         
-        buffer.write(dataBuffer, offset, Constants.INODE_SIZE);
+        
+        byte[] emptyBuffer = new byte[Constants.INODE_SIZE];
+        for (int k = 0; k < emptyBuffer.length; k++) {
+        	emptyBuffer[i] = 0;
+        }
+        
+        if(create) {
+            buffer.write(dataBuffer, offset, Constants.INODE_SIZE);
+        }
+        else {
+        	buffer.write(emptyBuffer, offset, Constants.INODE_SIZE);
+        }
         
         while(!buffer.checkValid()) {
             buffer.waitValid();
@@ -135,7 +146,7 @@ public class FileSystem extends DFS {
         DFileID dfid = new DFileID(fileID);
         Inode inode = new Inode(dfid);
 
-        writeInode(inode);
+        writeInode(inode, true);
         
         DFileMap.put(dfid, inode);
         
@@ -144,8 +155,9 @@ public class FileSystem extends DFS {
 
     @Override
     public void destroyDFile (DFileID dFID) {
-        // TODO Auto-generated method stub
-
+        writeInode(DFileMap.get(dFID), false);
+        DFileMap.remove(dFID);
+        blockManager.addBlock(dFID);
     }
 
     @Override
