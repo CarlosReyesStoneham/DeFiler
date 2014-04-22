@@ -51,6 +51,25 @@ public class FileSystem extends DFS {
         for (int j = 0; j < dFidBytes.toByteArray().length; j++) {
             dataBuffer[j] = dFidBytes.toByteArray()[j];
         }
+        /*Adding block pointers to the inode*/
+        List<BigInteger> blockMapData = new ArrayList<BigInteger>();
+        for (int block : inode.getMyBlockMap()) {
+            blockMapData.add(BigInteger.valueOf(block));
+        }
+        byte[] intermediateBuffer = new byte[Constants.INODE_SIZE];
+        int i = 0;
+        for (BigInteger bigInt : blockMapData) {
+            for (int j = 0; j < bigInt.toByteArray().length; j++) {
+                intermediateBuffer[j+i] = bigInt.toByteArray()[j];
+            }
+            i+=bigInt.toByteArray().length;
+        }
+        /*Done adding block pointers to the inode*/
+
+        for (int j = 0; j < intermediateBuffer.length; j++) {
+            dataBuffer[j + dFidBytes.toByteArray().length] = intermediateBuffer[j];
+        }
+        
         buffer.write(dataBuffer, offset, Constants.INODE_SIZE);
         
         while(!buffer.checkValid()) {
@@ -62,7 +81,18 @@ public class FileSystem extends DFS {
     @Override
     public void init () {
 
-        // INODES
+        byte[] inodeBuffer = new byte[Constants.BLOCK_SIZE];
+        DBuffer buffer = myCache.getBlock(0);
+        
+        for (int i = 0; i < Constants.MAX_DFILES; i += Constants.INODE_SIZE) {
+            
+            
+            
+            buffer.write(inodeBuffer, i, Constants.INODE_SIZE);
+        }
+        buffer.startPush();
+        
+        //////////////////////////////////////////////
         for (int i = 0; i < Constants.MAX_DFILES; i += Constants.INODE_SIZE) {
             Buffer buf = null;
             if (myCache.getBlock(i) != null) {
@@ -79,7 +109,7 @@ public class FileSystem extends DFS {
             DFileID fileID = new DFileID(buf.getBlockID());
 
         }
-
+        
         // THIS NEEDS TO CHANGE
         // go through the list of used inodes and remove the allocated blocks from the freelist
         for (Inode i : DFileMap.values()) {
@@ -183,10 +213,12 @@ public class FileSystem extends DFS {
 
     @Override
     public int sizeDFile (DFileID dFID) {
-        //DBuffer buf = myCache.getBlock(dFID.getDFileID());
+        int size = 0;
+        for (Integer i : DFileMap.get(dFID).getMyBlockMap()) {
+            size+=i*Constants.BLOCK_SIZE;
+        }
         
-        
-        return 0;
+        return size;
     }
 
     @Override
