@@ -5,7 +5,10 @@ import java.io.IOException;
 import java.io.RandomAccessFile;
 
 import common.Constants.DiskOperationType;
+import common.DFileID;
+import dblockcache.Buffer;
 import dblockcache.DBuffer;
+import dfs.Inode;
 import java.util.*;
 import common.Constants;
 
@@ -46,7 +49,7 @@ public class VDisk extends VirtualDisk implements Runnable {
 	public VDisk() throws FileNotFoundException, IOException {
 		super();
 		myRequestQueue = new LinkedList<Request>();
-	}
+	}	
 
 	@Override
 	public synchronized void startRequest (DBuffer buf, DiskOperationType operation)

@@ -2,12 +2,16 @@ package dfs;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.math.BigInteger;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Queue;
 import virtualdisk.VDisk;
+import virtualdisk.VirtualDisk;
 import common.Constants;
 import common.DFileID;
 import dblockcache.Buffer;
@@ -36,10 +40,50 @@ public class FileSystem extends DFS {
         blockManager = new BlockManager();
         DFileMap = new HashMap<DFileID, Inode>();
     }
+    
+    public void writeInode(DFileID dfid, int fileSize) {
+        byte[] inodeBuffer = new byte[Constants.BLOCK_SIZE];
+        DBuffer buffer = myCache.getBlock(0);
+        for (int i = 0; i < Constants.MAX_DFILES; i += Constants.INODE_SIZE) {
+            BigInteger dfidbytes = BigInteger.valueOf(dfid.getDFileID());
+            BigInteger sizebytes = BigInteger.valueOf(dfid.getDFileID());
+            
+            for (int j = 0; j < dfidbytes.toByteArray().length; j++) {
+                inodeBuffer[j] = dfidbytes.toByteArray()[j];
+            }
+            for (int j = 0; j < sizebytes.toByteArray().length; j++) {
+                inodeBuffer[j+dfidbytes.toByteArray().length] = sizebytes.toByteArray()[j];
+            }
+            
+            
+            buffer.write(inodeBuffer, i, Constants.INODE_SIZE);
+        }
+        buffer.startPush();
 
+    }
+    
     @Override
     public void init () {
-    
+        
+        //INODES
+        for(int i = 0; i < Constants.MAX_DFILES; i += Constants.INODE_SIZE) {
+            Buffer buf = null;
+            if (myCache.getBlock(i) != null) {
+                buf = (Buffer) myCache.getBlock(i);
+            }
+            else {
+                continue;
+            }
+            while(!buf.checkValid()) {
+                buf.waitValid();
+            }
+            buf.startFetch();
+            
+            DFileID fileID = new DFileID(buf.getBlockID());
+            
+        }
+        
+        //THIS NEEDS TO CHANGE
        //go through the list of used inodes and remove the allocated blocks from the freelist
        for (Inode i : DFileMap.values()) {
     	   for (int id : i.getMyBlockMap()) {
@@ -50,9 +94,10 @@ public class FileSystem extends DFS {
 
     @Override
     public DFileID createDFile () {
-
-        // TODO Auto-generated method stub
+        
+        //GO DOWN TO THE VIRTUAL DISK TO GET HIGHEST VALUE FILE #
         return null;
+        //return new DFileID(blockNumber);
     }
 
     @Override
@@ -114,10 +159,12 @@ public class FileSystem extends DFS {
 
             Block block = blockManager.allocateBlock(blockContent);
             inode.addToBlockMap(block.getID());
+            // Write blocks to cache
+            myCache.getBlock(block.getID());
+            
             blockCount++;
         }
-
-        // PUT THE INODE SOMEWHERE
+        DFileMap.put(dFID, inode);
 
         return 0;
     }
