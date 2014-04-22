@@ -3,6 +3,7 @@ package dfs;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.math.BigInteger;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -107,7 +108,9 @@ public class FileSystem extends DFS {
         Inode inode = new Inode(dfid);
 
         writeInode(inode);
+        
         DFileMap.put(dfid, inode);
+        
         return dfid;
     }
 
@@ -180,14 +183,19 @@ public class FileSystem extends DFS {
 
     @Override
     public int sizeDFile (DFileID dFID) {
-        // TODO Auto-generated method stub
+        //DBuffer buf = myCache.getBlock(dFID.getDFileID());
+        
+        
         return 0;
     }
 
     @Override
     public List<DFileID> listAllDFiles () {
-        // TODO Auto-generated method stub
-        return null;
+        List<DFileID> files = new ArrayList<DFileID>();
+        for (DFileID id : DFileMap.keySet()) {
+            files.add(id);
+        }
+        return files;
     }
 
     @Override
