@@ -3,15 +3,11 @@ package dfs;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.math.BigInteger;
-import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashMap;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
-import java.util.Queue;
+import java.util.Set;
 import virtualdisk.VDisk;
-import virtualdisk.VirtualDisk;
 import common.Constants;
 import common.DFileID;
 import dblockcache.Buffer;
@@ -51,12 +47,8 @@ public class FileSystem extends DFS {
         byte[] dataBuffer = new byte[Constants.INODE_SIZE];
 
         BigInteger dFidBytes = BigInteger.valueOf(inode.getFileID().getDFileID());
-        BigInteger sizeBytes = BigInteger.valueOf(inode.getFileSize());
         for (int j = 0; j < dFidBytes.toByteArray().length; j++) {
             dataBuffer[j] = dFidBytes.toByteArray()[j];
-        }
-        for (int j = 0; j < sizeBytes.toByteArray().length; j++) {
-            dataBuffer[j + dFidBytes.toByteArray().length] = sizeBytes.toByteArray()[j];
         }
         buffer.write(dataBuffer, offset, Constants.INODE_SIZE);
         
@@ -99,9 +91,24 @@ public class FileSystem extends DFS {
     @Override
     public DFileID createDFile () {
 
-        // GO DOWN TO THE VIRTUAL DISK TO GET HIGHEST VALUE FILE #
-        return null;
-        // return new DFileID(blockNumber);
+        int fileID = 0;
+        Set<DFileID> keys = DFileMap.keySet();
+        for (DFileID d : keys) {
+            if ((d.getDFileID()) == (fileID)) {
+                fileID++;
+                break;
+            }
+            else {
+                fileID++;
+            }
+        }
+
+        DFileID dfid = new DFileID(fileID);
+        Inode inode = new Inode(dfid);
+
+        writeInode(inode);
+        DFileMap.put(dfid, inode);
+        return dfid;
     }
 
     @Override
@@ -144,7 +151,7 @@ public class FileSystem extends DFS {
             numBlocks = fileSize / Constants.BLOCK_SIZE;
         }
 
-        Inode inode = new Inode(dFID, fileSize);
+        Inode inode = new Inode(dFID);
 
         int currentBytePosition = 0;
         int blockCount = 0;

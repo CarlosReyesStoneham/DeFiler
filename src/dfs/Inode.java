@@ -5,12 +5,10 @@ import java.util.*;
 
 public class Inode {
     private DFileID myID;
-    private int myFileSize;
     private List<Integer> myBlockMap;
 
-    public Inode (DFileID id, int fileSize) {
+    public Inode (DFileID id) {
         this.myID = id;
-        this.myFileSize = fileSize;
         myBlockMap = new ArrayList<Integer>();
     }
     
@@ -20,10 +18,6 @@ public class Inode {
     
     public List<Integer> getMyBlockMap () {
         return myBlockMap;
-    }
-    
-    public int getFileSize() {
-        return this.myFileSize;
     }
     
     public DFileID getFileID() {
