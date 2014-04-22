@@ -86,8 +86,6 @@ public class FileSystem extends DFS {
         
         for (int i = 0; i < Constants.MAX_DFILES; i += Constants.INODE_SIZE) {
             
-            
-            
             buffer.write(inodeBuffer, i, Constants.INODE_SIZE);
         }
         buffer.startPush();
