@@ -21,7 +21,15 @@ public class Inode {
     public List<Integer> getMyBlockMap () {
         return myBlockMap;
     }
-
+    
+    public int getFileSize() {
+        return this.myFileSize;
+    }
+    
+    public DFileID getFileID() {
+        return this.myID;
+    }
+    
     public void setMyBlockMap (List<Integer> myBlockMap) {
         this.myBlockMap = myBlockMap;
     }
