@@ -91,36 +91,29 @@ public class FileSystem extends DFS {
 
     @Override
     public void init () {
-
-        byte[] inodeBuffer = new byte[Constants.BLOCK_SIZE];
-        DBuffer buffer = myCache.getBlock(0);
         
-        for (int i = 0; i < Constants.MAX_DFILES; i += Constants.INODE_SIZE) {
+        for (int i = 0; i < 16; i++) {
+            DBuffer buffer = myCache.getBlock(i);
             
-            buffer.write(inodeBuffer, i, Constants.INODE_SIZE);
+            for (int j=0; j <Constants.BLOCK_SIZE; j+= Constants.INODE_SIZE) {
+                byte[] idBuffer = new byte[4];
+                List<Integer> blockMap = new ArrayList<Integer>();
+                buffer.read(idBuffer, j, 4);
+                
+                for (int k = 4; k < Constants.INODE_SIZE; k+=4) {
+                    byte[] blockPointerBuffer = new byte[4];
+                    buffer.read(blockPointerBuffer, j+k, 4);
+                    blockMap.add(Integer.parseInt(blockPointerBuffer.toString()));
+                }
+                
+                DFileID dfid = new DFileID(Integer.parseInt(idBuffer.toString()));
+                Inode inode = new Inode(dfid);
+                inode.setMyBlockMap(blockMap);
+                DFileMap.put(dfid, inode);
+            }
+            
         }
-        buffer.startPush();
-        
-        //////////////////////////////////////////////
-        for (int i = 0; i < Constants.MAX_DFILES; i += Constants.INODE_SIZE) {
-            Buffer buf = null;
-            if (myCache.getBlock(i) != null) {
-                buf = (Buffer) myCache.getBlock(i);
-            }
-            else {
-                continue;
-            }
-            while (!buf.checkValid()) {
-                buf.waitValid();
-            }
-            buf.startFetch();
 
-            DFileID fileID = new DFileID(buf.getBlockID());
-
-        }
-        
-        // THIS NEEDS TO CHANGE
-        // go through the list of used inodes and remove the allocated blocks from the freelist
         for (Inode i : DFileMap.values()) {
             for (int id : i.getMyBlockMap()) {
                 blockManager.removeBlock(id);
