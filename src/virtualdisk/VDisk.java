@@ -52,13 +52,14 @@ public class VDisk extends VirtualDisk implements Runnable {
 	}	
 
 	@Override
-	public synchronized void startRequest (DBuffer buf, DiskOperationType operation)
+	public void startRequest (DBuffer buf, DiskOperationType operation)
 			throws IllegalArgumentException,
 			IOException {
+	        synchronized(myRequestQueue) {
 		Request request = new Request(buf, operation);
 		myRequestQueue.add(request);
 		myRequestQueue.notifyAll();
-
+	        }
 	}
 
 	public synchronized void handleRequests() {
@@ -84,7 +85,8 @@ public class VDisk extends VirtualDisk implements Runnable {
 	}
 
 	@Override
-	public synchronized void run() {
+	public void run() {
+	    synchronized(myRequestQueue) {
 		while(true) {
 			while(myRequestQueue.isEmpty()) {
 				try {
@@ -96,5 +98,6 @@ public class VDisk extends VirtualDisk implements Runnable {
 			}
 			handleRequests();
 		}
+	    }
 	}
 }

@@ -3,6 +3,7 @@ package dfs;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Queue;
+import java.util.concurrent.ConcurrentLinkedQueue;
 
 import common.*;
 
@@ -26,30 +27,30 @@ public class BlockManager {
 
 
 	public BlockManager() {
-		myBlockList = new LinkedList<Block>();
+		myBlockList = new ConcurrentLinkedQueue<Block>();
 		for (int i = 0; i < Constants.NUM_OF_BLOCKS; i++) {
 			myBlockList.add(new Block(i, null));
 		}
 	}
 
-	public Block allocateBlock(byte[] content) {
+	public synchronized Block allocateBlock(byte[] content) {
 		Block block = myBlockList.poll();
 		block.myContent = content;
 		return block;
 	}
 
-	public Queue<Block> getBlockList() {
+	public synchronized Queue<Block> getBlockList() {
 		return this.myBlockList;
 	}
 
-	public void removeBlock(int index) {
+	public synchronized void removeBlock(int index) {
 		for (Block b : myBlockList) {
 			if (b.getID() == index) {
 				myBlockList.remove(b);
 			}
 		}
 	}
-	public void addBlock(DFileID dFID) {
+	public synchronized void addBlock(DFileID dFID) {
 		myBlockList.add(new Block(dFID.getDFileID(), null));
 
 	}

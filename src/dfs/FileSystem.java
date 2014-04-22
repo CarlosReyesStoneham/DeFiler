@@ -3,15 +3,16 @@ package dfs;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.math.BigInteger;
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
 import virtualdisk.VDisk;
 import common.Constants;
 import common.DFileID;
-import dblockcache.Buffer;
 import dblockcache.BufferCache;
 import dblockcache.DBuffer;
 import dfs.BlockManager.Block;
@@ -34,10 +35,19 @@ public class FileSystem extends DFS {
             e.printStackTrace();
         }
         blockManager = new BlockManager();
-        DFileMap = new HashMap<DFileID, Inode>();
+        DFileMap = new ConcurrentHashMap<DFileID, Inode>();
     }
 
-    public void writeInode (Inode inode, boolean create) {
+    public FileSystem (String volName, boolean format) {
+        this._volName = volName;
+        this._format = format;
+    }
+
+    public FileSystem (boolean format) {
+        this(Constants.vdiskName, format);
+    }
+
+    public synchronized void writeInode (Inode inode, boolean create) {
         int id = inode.getFileID().getDFileID();
 
         int blockPosition = id / Constants.INODE_SIZE;
@@ -52,11 +62,11 @@ public class FileSystem extends DFS {
             dataBuffer[j] = dFidBytes.toByteArray()[j];
         }
         /*Adding block pointers to the inode*/
-        List<BigInteger> blockMapData = new ArrayList<BigInteger>();
+        List<BigInteger> blockMapData = new CopyOnWriteArrayList<BigInteger>();
         for (int block : inode.getMyBlockMap()) {
             blockMapData.add(BigInteger.valueOf(block));
         }
-        byte[] intermediateBuffer = new byte[Constants.INODE_SIZE];
+        byte[] intermediateBuffer = new byte[Constants.INODE_SIZE-4];
         int i = 0;
         for (BigInteger bigInt : blockMapData) {
             for (int j = 0; j < bigInt.toByteArray().length; j++) {
@@ -83,9 +93,6 @@ public class FileSystem extends DFS {
         	buffer.write(emptyBuffer, offset, Constants.INODE_SIZE);
         }
         
-        while(!buffer.checkValid()) {
-            buffer.waitValid();
-        }
         buffer.startPush();
     }
 
@@ -96,24 +103,37 @@ public class FileSystem extends DFS {
             DBuffer buffer = myCache.getBlock(i);
             
             for (int j=0; j <Constants.BLOCK_SIZE; j+= Constants.INODE_SIZE) {
-                byte[] idBuffer = new byte[4];
-                List<Integer> blockMap = new ArrayList<Integer>();
-                buffer.read(idBuffer, j, 4);
-                
-                for (int k = 4; k < Constants.INODE_SIZE; k+=4) {
-                    byte[] blockPointerBuffer = new byte[4];
-                    buffer.read(blockPointerBuffer, j+k, 4);
-                    blockMap.add(Integer.parseInt(blockPointerBuffer.toString()));
+                byte[] fullBuffer = new byte[Constants.INODE_SIZE];
+                int zero = 0;
+                for (byte b : fullBuffer) {
+                    zero = zero | b;
+                }                
+                if (zero != 0) {
+                    byte[] idBuffer = new byte[4];
+                    List<Integer> blockMap = new ArrayList<Integer>();
+                    buffer.read(idBuffer, j, 4);
+                    
+                    for (int k = 4; k < Constants.INODE_SIZE; k+=4) {
+                        byte[] blockPointerBuffer = new byte[4];
+                        buffer.read(blockPointerBuffer, j+k, 4);
+                        
+                        ByteBuffer wrapped = ByteBuffer.wrap(blockPointerBuffer); //Big-Endian
+                        int num = wrapped.getInt();
+                        
+                        blockMap.add(num);
+                    }
+                    
+                    ByteBuffer wrapped = ByteBuffer.wrap(idBuffer); //Big-Endian
+                    int num = wrapped.getInt();
+                    
+                    DFileID dfid = new DFileID(num);
+                    Inode inode = new Inode(dfid);
+                    inode.setMyBlockMap(blockMap);
+                    DFileMap.put(dfid, inode);
                 }
-                
-                DFileID dfid = new DFileID(Integer.parseInt(idBuffer.toString()));
-                Inode inode = new Inode(dfid);
-                inode.setMyBlockMap(blockMap);
-                DFileMap.put(dfid, inode);
             }
-            
-        }
 
+        }
         for (Inode i : DFileMap.values()) {
             for (int id : i.getMyBlockMap()) {
                 blockManager.removeBlock(id);
@@ -122,7 +142,7 @@ public class FileSystem extends DFS {
     }
 
     @Override
-    public DFileID createDFile () {
+    public synchronized DFileID createDFile () {
 
         int fileID = 0;
         Set<DFileID> keys = DFileMap.keySet();
@@ -140,14 +160,14 @@ public class FileSystem extends DFS {
         Inode inode = new Inode(dfid);
 
         writeInode(inode, true);
-        
+
         DFileMap.put(dfid, inode);
         
         return dfid;
     }
 
     @Override
-    public void destroyDFile (DFileID dFID) {
+    public synchronized void destroyDFile (DFileID dFID) {
         writeInode(DFileMap.get(dFID), false);
         DFileMap.remove(dFID);
         blockManager.addBlock(dFID);
@@ -195,10 +215,10 @@ public class FileSystem extends DFS {
             byte[] blockContent = new byte[Constants.BLOCK_SIZE];
             for (int i = currentBytePosition; i < currentBytePosition
                                                   + Constants.BLOCK_SIZE; i++) {
-                if (i > buffer.length) {
+                if (i >= buffer.length) {
                     break;
                 }
-                blockContent[i] = buffer[i];
+                blockContent[i-currentBytePosition] = buffer[i];
             }
             currentBytePosition += Constants.BLOCK_SIZE;
 
